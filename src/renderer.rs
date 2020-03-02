@@ -5,6 +5,19 @@ use crate::vector::Vector;
 use crate::vertex::Lerp;
 use std::marker::PhantomData;
 
+pub struct VSOutput<VA:Lerp>{
+    pub pos:Vector,
+    pub va:VA,
+}
+
+impl<VA:Lerp> VSOutput<VA>{
+    pub fn new(pos:Vector,va:VA)->Self{
+        VSOutput{
+            pos,va,
+        }
+    }
+}
+
 struct Segment<'a, V: Lerp> {
     pub s: (&'a Vector, &'a V),
     pub e: (&'a Vector, &'a V),
@@ -68,12 +81,23 @@ impl From<Plane> for u8 {
     }
 }
 
+impl Plane{
+    fn next(self)->Option<Plane>{
+        let u = u8::from(self) + 1;
+        if u >= 6{
+            None
+        }else{
+            Some(Plane::from(u))
+        }
+    }
+}
+
 // V is Vertex attributes
 pub struct Renderer<VS, FS, V: Lerp> where
-    VS: Fn(&V) -> (Vector, V),
+    VS: Fn(&V) -> VSOutput<V>,
     FS: Fn(&V) -> Vector
 {
-    w: usize,
+    width: usize,
     h: usize,
 
     vertex_shader: Option<VS>,
@@ -86,13 +110,13 @@ pub struct Renderer<VS, FS, V: Lerp> where
 
 
 impl<VS, FS, V> Renderer<VS, FS, V> where
-    VS: Fn(&V) -> (Vector, V),
+    VS: Fn(&V) -> VSOutput<V>,
     FS: Fn(&V) -> Vector,
     V: Lerp
 {
     pub fn new(w: usize, h: usize) -> Self {
         Renderer {
-            w,
+            width: w,
             h,
             vertex_shader: None,
             fragment_shader: None,
@@ -129,58 +153,64 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
     }
 
     pub fn render(&self, vertices: &[V]) {
-        let data: Vec<(Vector, V)> = vertices.iter().map(|x| (self.vertex_shader.as_ref().unwrap())(&x)).collect();
+        let mut data:Vec<VSOutput<V>> = vertices.iter().map(|x| {
+            (self.vertex_shader.as_ref().unwrap())(&x)
+        }).collect();
+
         for i in (0..data.len() / 3).map(|x| x * 3) {
-            let p0 = &data[i];
-            let p1 = &data[i + 1];
-            let p2 = &data[i + 2];
-            self.draw_triangle(p0, p1, p2);
+            let p0 = data.get(i).unwrap();
+            let p1 = data.get(i + 1).unwrap();
+            let p2 = data.get(i + 2).unwrap();
+            self.draw_triangle(p0, p1, p2,true);
         }
     }
 
     pub fn render_with_index(&self, vertices: &[V], indices: &[usize]) {
-        let data: Vec<(Vector, V)> = vertices.iter().map(|x| (self.vertex_shader.as_ref().unwrap())(&x)).collect();
+        let mut data: Vec<VSOutput<V>> = vertices.iter().map(|x| {
+            (self.vertex_shader.as_ref().unwrap())(&x)
+        }).collect();
+
         for i in (0..indices.len() / 3).map(|x| x * 3) {
-            let p0 = &data[indices[i]];
-            let p1 = &data[indices[i + 1]];
-            let p2 = &data[indices[i + 2]];
-            self.draw_triangle(p0, p1, p2);
+            let p0 =data.get(indices[i]).unwrap();
+            let p1 = data.get(indices[i+1]).unwrap();
+            let p2 = data.get(indices[i+2]).unwrap();
+            self.draw_triangle(p0, p1, p2,true);
         }
     }
 
-    fn draw_triangle(&self, p0: &(Vector, V), p1: &(Vector, V), p2: &(Vector, V)) {
-        let cc0 = Self::check_cvv(&p0.0);
-        let cc1 = Self::check_cvv(&p1.0);
-        let cc2 = Self::check_cvv(&p2.0);
+    fn draw_triangle(&self, p0: &VSOutput<V>, p1: &VSOutput<V>, p2: &VSOutput<V>,clip:bool) {
+        if clip {
+            let cc0 = Self::check_cvv(&p0.pos);
+            let cc1 = Self::check_cvv(&p1.pos);
+            let cc2 = Self::check_cvv(&p2.pos);
 
-        let cc_and = cc0 & cc1 & cc2;
+            let cc_and = cc0 & cc1 & cc2;
 
-        //三个点全在某个平面之外
-        if cc_and != 0 {
-            return;
-        }
-
-        let cc_or = cc0 | cc1 | cc2;
-
-        //有顶点在裁剪空间外
-        if cc_or != 0 {
-            if let Some(plane) = Self::find_next_clip_plane(0, cc_or) {
-                self.clip_triangle(&p0, &p1, &p2, plane);
+            //三个点全在某个平面之外
+            if cc_and != 0 {
+                return;
             }
-            return;
+
+            let cc_or = cc0 | cc1 | cc2;
+
+            //有顶点在裁剪空间外
+            if cc_or != 0 {
+                self.clip_triangle(p0, p1, p2,Self::find_next_clip_plane(0, cc_or));
+                return;
+            }
         }
 
         //透视除法
-        let pos0 = Self::perspective_div(&p0.0);
-        let pos1 = Self::perspective_div(&p1.0);
-        let pos2 = Self::perspective_div(&p2.0);
+        let pos0 = Self::perspective_div(&p0.pos);
+        let pos1 = Self::perspective_div(&p1.pos);
+        let pos2 = Self::perspective_div(&p2.pos);
         let pos0 = self.to_ndc(&pos0);
         let pos1 = self.to_ndc(&pos1);
         let pos2 = self.to_ndc(&pos2);
 
-        let v0 = (&pos0, &p0.1);
-        let v1 = (&pos1, &p1.1);
-        let v2 = (&pos2, &p2.1);
+        let v0 = (&pos0, &p0.va);
+        let v1 = (&pos1, &p1.va);
+        let v2 = (&pos2, &p2.va);
 
         let s1 = Segment::<V>::new(v0, v1);
         let s2 = Segment::<V>::new(v0, v2);
@@ -192,6 +222,104 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
         self.rasterize(&tss[0], &tss[1]);
         self.rasterize(&tss[0], &tss[2]);
+    }
+
+    fn clip_triangle(&self, p0: &VSOutput<V>, p1: &VSOutput<V>, p2: &VSOutput<V>, plane: Option<Plane>) {
+        let cc0 = Self::check_cvv(&p0.pos);
+        let cc1 = Self::check_cvv(&p1.pos);
+        let cc2 = Self::check_cvv(&p2.pos);
+
+        let cc_or = cc0 | cc1 | cc2;
+
+        if plane.is_none(){
+            self.draw_triangle(p0,p1,p2,false);
+            return;
+        }
+
+        let plane = plane.unwrap();
+        let plane = Self::find_next_clip_plane(plane as u8,cc_or);
+        let plane = match plane{
+            None=>{
+                self.draw_triangle(p0,p1,p2,false);
+                return;
+            },
+            Some(plane)=>plane
+        };
+
+        let plane_mask = 1 << u8::from(plane);
+        let cc_xor = (cc0 ^ cc1 ^ cc2) & plane_mask;
+        let mut tvs: Vec<&VSOutput<V>> = Vec::with_capacity(3);
+
+        if cc_xor == 0 {
+            //有两个顶点在当前裁剪平面外
+            //tvs[0]在平面内
+            if (cc0 & plane_mask) == 0 {
+                tvs.push(p0);
+                tvs.push(p1);
+                tvs.push(p2);
+            } else if (cc1 & plane_mask) == 0 {
+                tvs.push(p1);
+                tvs.push(p2);
+                tvs.push(p0);
+            } else {
+                tvs.push(p2);
+                tvs.push(p0);
+                tvs.push(p1);
+            }
+
+            let t1 = Self::compute_t_on_clip_plane(&tvs[0].pos, &tvs[1].pos, plane);
+            let t2 = Self::compute_t_on_clip_plane(&tvs[0].pos, &tvs[2].pos, plane);
+
+            let pos01 = Vector::lerp(&tvs[0].pos, &tvs[1].pos, t1);
+            let pos02 = Vector::lerp(&tvs[0].pos, &tvs[2].pos, t2);
+            let v01 = V::lerp(&tvs[0].va, &tvs[1].va, t1);
+            let v02 = V::lerp(&tvs[0].va, &tvs[2].va, t2);
+            let p01 = VSOutput::new(pos01, v01);
+            let p02 = VSOutput::new(pos02, v02);
+
+            self.clip_triangle(tvs[0], &p01, &p02,plane.next());
+        } else {
+            //有一个顶点在当前裁剪平面外
+            //tvs[0]在平面外
+            if (cc0 & plane_mask) > 0 {
+                tvs.push(p0);
+                tvs.push(p1);
+                tvs.push(p2);
+            } else if (cc1 & plane_mask) > 0 {
+                tvs.push(p1);
+                tvs.push(p2);
+                tvs.push(p0);
+            } else {
+                tvs.push(p2);
+                tvs.push(p0);
+                tvs.push(p1);
+            }
+
+            let t1 = Self::compute_t_on_clip_plane(&tvs[1].pos, &tvs[0].pos, plane);
+            let t2 = Self::compute_t_on_clip_plane(&tvs[2].pos, &tvs[0].pos, plane);
+
+            let pos10 = Vector::lerp(&tvs[1].pos, &tvs[0].pos, t1);
+            let pos20 = Vector::lerp(&tvs[2].pos, &tvs[0].pos, t2);
+            let v10 = V::lerp(&tvs[1].va, &tvs[0].va, t1);
+            let v20 = V::lerp(&tvs[2].va, &tvs[0].va, t2);
+            let p10 = VSOutput::new(pos10, v10);
+            let p20 = VSOutput::new(pos20, v20);
+
+            let np = plane.next();
+            self.clip_triangle(tvs[2], &p20, tvs[1], np);
+            self.clip_triangle(tvs[1], &p20, &p10, np);
+        }
+    }
+
+    fn compute_t_on_clip_plane(s: &Vector, e: &Vector, plane: Plane) -> f32 {
+        match plane {
+            Plane::NX => (s.x + s.w) / (s.x - e.x + s.w - e.w),
+            Plane::X => (s.x - s.w) / (s.x - e.x - s.w + e.w),
+            Plane::NY => (s.y + s.w) / (s.y - e.y + s.w - e.w),
+            Plane::Y => (s.y - s.w) / (s.y - e.y - s.w + e.w),
+            Plane::NZ => (s.z + s.w) / (s.z - e.z + s.w - e.w),
+            Plane::Z => (s.z - s.w) / (s.z - e.z - s.w + e.w),
+        }
     }
 
     fn rasterize(&self, s1: &Segment<V>, s2: &Segment<V>) {
@@ -244,7 +372,12 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
     #[inline]
     fn set_depth(&self, x: usize, y: usize, depth: f32) -> bool {
-        let pos = self.w * y + x;
+        let (pos,of) = (self.width * y).overflowing_add(x);
+        if of{
+            println!();
+        }
+
+        let pos = self.width * y + x;
         let mut db = self.depth_buffer.borrow_mut();
 
         if depth < db[pos] {
@@ -256,7 +389,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
     #[inline]
     fn set_color(&self, x: usize, y: usize, color: &Vector) {
-        let pos = (self.w * y + x) * 3;
+        let pos = (self.width * y + x) * 3;
         let mut cb = self.color_buffer.borrow_mut();
         let (r, g, b) = ((color.x * 255f32) as u8, (color.y * 255f32) as u8, (color.z * 255f32) as u8);
         cb[pos + 0] = b;
@@ -270,100 +403,9 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
     }
 
     fn to_ndc(&self, v: &Vector) -> Vector {
-        let nx = (v.x + 1f32) * 0.5f32 * self.w as f32;
+        let nx = (v.x + 1f32) * 0.5f32 * self.width as f32;
         let ny = (-v.y + 1f32) * 0.5f32 * self.h as f32;
         Vector::point(nx, ny, v.z)
-    }
-
-    fn clip_triangle(&self, p0: &(Vector, V), p1: &(Vector, V), p2: &(Vector, V), plane: Plane) {
-        let cc0 = Self::check_cvv(&p0.0);
-        let cc1 = Self::check_cvv(&p1.0);
-        let cc2 = Self::check_cvv(&p2.0);
-
-        let cc_or = cc0 | cc1 | cc2;
-
-        let plane_mask = 1 << u8::from(plane);
-        let cc_xor = (cc0 ^ cc1 ^ cc2) & plane_mask;
-        let mut tvs: Vec<&(Vector, V)> = Vec::with_capacity(3);
-
-        if cc_xor == 0 {
-            //有两个顶点在当前裁剪平面外
-            //tvs[0]在平面内
-            if (cc0 & plane_mask) == 0 {
-                tvs.push(p0);
-                tvs.push(p1);
-                tvs.push(p2);
-            } else if (cc1 & plane_mask) == 0 {
-                tvs.push(p1);
-                tvs.push(p2);
-                tvs.push(p0);
-            } else {
-                tvs.push(p2);
-                tvs.push(p0);
-                tvs.push(p1);
-            }
-
-            let t1 = Self::compute_t_on_clip_plane(&tvs[0].0, &tvs[1].0, plane);
-            let t2 = Self::compute_t_on_clip_plane(&tvs[0].0, &tvs[2].0, plane);
-
-            let pos01 = Vector::lerp(&tvs[0].0, &tvs[1].0, t1);
-            let pos02 = Vector::lerp(&tvs[0].0, &tvs[2].0, t2);
-            let v01 = V::lerp(&tvs[0].1, &tvs[1].1, t1);
-            let v02 = V::lerp(&tvs[0].1, &tvs[2].1, t2);
-            let p01 = (pos01, v01);
-            let p02 = (pos02, v02);
-
-            if let Some(next_plane) = Self::find_next_clip_plane(u8::from(plane) + 1, cc_or) {
-                self.clip_triangle(tvs[0], &p01, &p02, next_plane);
-            } else {
-                self.draw_triangle(tvs[0], &p01, &p02);
-            }
-        } else {
-            //有一个顶点在当前裁剪平面外
-            //tvs[0]在平面外
-            if (cc0 & plane_mask) > 0 {
-                tvs.push(p0);
-                tvs.push(p1);
-                tvs.push(p2);
-            } else if (cc1 & plane_mask) > 0 {
-                tvs.push(p1);
-                tvs.push(p2);
-                tvs.push(p0);
-            } else {
-                tvs.push(p2);
-                tvs.push(p0);
-                tvs.push(p1);
-            }
-
-            let t1 = Self::compute_t_on_clip_plane(&tvs[1].0, &tvs[0].0, plane);
-            let t2 = Self::compute_t_on_clip_plane(&tvs[2].0, &tvs[0].0, plane);
-
-            let pos10 = Vector::lerp(&tvs[1].0, &tvs[0].0, t1);
-            let pos20 = Vector::lerp(&tvs[2].0, &tvs[0].0, t2);
-            let v10 = V::lerp(&tvs[1].1, &tvs[0].1, t1);
-            let v20 = V::lerp(&tvs[2].1, &tvs[0].1, t2);
-            let p10 = (pos10, v10);
-            let p20 = (pos20, v20);
-
-            if let Some(next_plane) = Self::find_next_clip_plane(u8::from(plane) + 1, cc_or) {
-                self.clip_triangle(tvs[2], &p20, tvs[1], next_plane);
-                self.clip_triangle(tvs[1], &p20, &p10, next_plane);
-            } else {
-                self.draw_triangle(tvs[2], &p20, tvs[1]);
-                self.draw_triangle(tvs[1], &p20, &p10);
-            }
-        }
-    }
-
-    fn compute_t_on_clip_plane(s: &Vector, e: &Vector, plane: Plane) -> f32 {
-        match plane {
-            Plane::NX => (s.x + s.w) / (s.x - e.x + s.w - e.w),
-            Plane::X => (s.x - s.w) / (s.x - e.x - s.w + e.w),
-            Plane::NY => (s.y + s.w) / (s.y - e.y + s.w - e.w),
-            Plane::Y => (s.y - s.w) / (s.y - e.y - s.w + e.w),
-            Plane::NZ => (s.z + s.w) / (s.z - e.z + s.w - e.w),
-            Plane::Z => (s.z - s.w) / (s.z - e.z - s.w + e.w),
-        }
     }
 
     fn find_next_clip_plane(s: u8, code: u8) -> Option<Plane> {
