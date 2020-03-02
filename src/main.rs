@@ -38,7 +38,7 @@ fn main() -> Result<(), String> {
             uv: Vector::zero(),
         },
         Vertex {
-            pos: Vector::new(0.0, 1.0, -2.0, 1.0),
+            pos: Vector::new(0.0, 3.0, -2.0, 1.0),
             color: Vector::new(0.0, 0.0, 1.0, 1.0),
             normal: Vector::zero(),
             uv: Vector::zero(),
@@ -80,7 +80,7 @@ fn main() -> Result<(), String> {
         }
         x += 0.1f32;
         let p = Matrix::perspective(f32::consts::PI * 0.5f32, w as f32 / h as f32, 0.1, 1000.0);
-        let view = Matrix::look_at(&Vector::point(3f32 * f32::sin(x), 0f32, 3f32 * f32::cos(x)), &Vector::zero(), &Vector::vec(0f32, 1f32, 0f32));
+        let view = Matrix::look_at(&Vector::point(3f32 * f32::sin(x), 0f32, 3f32 * f32::cos(x)), &Vector::point(0.0,0.0,0.0), &Vector::vec(0f32, 1f32, 0f32));
         ren.set_vs(move |v: &Vertex| -> VSOutput<Vertex>{
             VSOutput::new(
                 (&view * &p).apply(&v.pos),

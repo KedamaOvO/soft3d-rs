@@ -204,6 +204,8 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         let pos0 = Self::perspective_div(&p0.pos);
         let pos1 = Self::perspective_div(&p1.pos);
         let pos2 = Self::perspective_div(&p2.pos);
+
+        //到NDC
         let pos0 = self.to_ndc(&pos0);
         let pos1 = self.to_ndc(&pos1);
         let pos2 = self.to_ndc(&pos2);
@@ -231,7 +233,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
         let cc_or = cc0 | cc1 | cc2;
 
-        if plane.is_none(){
+        if plane.is_none() || cc_or == 0{
             self.draw_triangle(p0,p1,p2,false);
             return;
         }
