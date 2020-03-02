@@ -98,7 +98,8 @@ pub struct Renderer<VS, FS, V: Lerp> where
     FS: Fn(&V) -> Vector
 {
     width: usize,
-    h: usize,
+    height: usize,
+    clear_color:[u8;3],
 
     vertex_shader: Option<VS>,
     fragment_shader: Option<FS>,
@@ -117,12 +118,14 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
     pub fn new(w: usize, h: usize) -> Self {
         Renderer {
             width: w,
-            h,
+            height: h,
+            clear_color: [0u8;3],
+
             vertex_shader: None,
             fragment_shader: None,
 
             color_buffer: RefCell::new(vec![0u8; w * h * 3]),
-            depth_buffer: RefCell::new(vec![INFINITY; w * h]),
+            depth_buffer: RefCell::new(vec![-INFINITY; w * h]),
 
             _phantom: PhantomData {},
         }
@@ -136,6 +139,10 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         self.fragment_shader = Some(fs)
     }
 
+    pub fn clear_color(&mut self,r:f32,g:f32,b:f32){
+        self.clear_color = [(r * 255f32) as u8,(g * 255f32) as u8,(b * 255f32) as u8];
+    }
+
     pub fn get_color_buffer<F>(&self, mut cb: F)
         where F: FnMut(&[u8])
     {
@@ -143,12 +150,14 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
     }
 
     pub fn clear(&self) {
+        let mut i = 0;
         for c in self.color_buffer.borrow_mut().iter_mut() {
-            *c = 0u8;
+            *c = self.clear_color[i];
+            i = (i + 1) % self.clear_color.len()
         }
 
         for d in self.depth_buffer.borrow_mut().iter_mut() {
-            *d = INFINITY;
+            *d = -INFINITY;
         }
     }
 
@@ -220,7 +229,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
         let mut tss: Vec<Segment<V>> = vec![s1, s2, s3];
         //tss[0]长度最长
-        tss.sort_by(|a, b| (b.length_y().partial_cmp(&a.length_y()).unwrap()));
+        tss.sort_by(|a, b| b.length_y().partial_cmp(&a.length_y()).or(Some(std::cmp::Ordering::Equal)).unwrap());
 
         self.rasterize(&tss[0], &tss[1]);
         self.rasterize(&tss[0], &tss[2]);
@@ -328,7 +337,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         let y_start = s2.s.0.y as usize;
         let y_end = s2.e.0.y as usize;
 
-        for y in y_start..y_end + 1 {
+        for y in y_start..y_end {
             let fy = y as f32;
             let s1ey = s1.e.0.y.floor();
             let s1sy = s1.s.0.y.floor();
@@ -355,7 +364,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
             let x_end = xp_end.0.x as usize;
             let x_len = (xp_end.0.x - xp_start.0.x).floor();
 
-            for x in x_start..x_end + 1 {
+            for x in x_start..x_end {
                 let fx = x as f32;
                 let t = (fx - xp_start.0.x.floor()) / x_len;
                 let p = (
@@ -375,14 +384,14 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
     #[inline]
     fn set_depth(&self, x: usize, y: usize, depth: f32) -> bool {
         let (pos,of) = (self.width * y).overflowing_add(x);
-        if of{
+        if of || pos > self.width * self.height{
             println!();
         }
 
         let pos = self.width * y + x;
         let mut db = self.depth_buffer.borrow_mut();
 
-        if depth < db[pos] {
+        if depth > db[pos] {
             db[pos] = depth;
             return true;
         }
@@ -406,7 +415,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
     fn to_ndc(&self, v: &Vector) -> Vector {
         let nx = (v.x + 1f32) * 0.5f32 * self.width as f32;
-        let ny = (-v.y + 1f32) * 0.5f32 * self.h as f32;
+        let ny = (-v.y + 1f32) * 0.5f32 * self.height as f32;
         Vector::point(nx, ny, v.z)
     }
 

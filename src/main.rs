@@ -4,6 +4,7 @@ mod vector;
 mod vertex;
 mod matrix;
 mod renderer;
+mod texture;
 
 
 use crate::vertex::Vertex;
@@ -16,6 +17,7 @@ use sdl2::keyboard::Keycode;
 use std::f32;
 
 use std::time::{Duration, SystemTime};
+use cgmath::Transform;
 
 fn main() -> Result<(), String> {
     let (w, h) = (800, 600);
@@ -26,23 +28,44 @@ fn main() -> Result<(), String> {
 
     let data = vec![
         Vertex {
-            pos: Vector::new(-20.0, -1.0, -2.0, 1.0),
-            color: Vector::new(1.0, 0.0, 0.0, 1.0),
+            pos: Vector::new(-1.0, 0.0, -1.0, 1.0),
+            color: Vector::new(1.0, 1.0, 1.0, 1.0),
             normal: Vector::zero(),
             uv: Vector::zero(),
         },
         Vertex {
-            pos: Vector::new(1.0, -1.0, -2.0, 1.0),
+            pos: Vector::new(-1.0, 0.0, 1.0, 1.0),
+            color: Vector::new(0.0, 1.0, 1.0, 1.0),
+            normal: Vector::zero(),
+            uv: Vector::zero(),
+        },
+        Vertex {
+            pos: Vector::new(1.0, 0.0, 1.0, 1.0),
+            color: Vector::new(1.0, 1.0, 0.0, 1.0),
+            normal: Vector::zero(),
+            uv: Vector::zero(),
+        },
+        Vertex {
+            pos: Vector::new(1.0, 0.0, -1.0, 1.0),
+            color: Vector::new(1.0, 0.0, 1.0, 1.0),
+            normal: Vector::zero(),
+            uv: Vector::zero(),
+        },
+        Vertex {
+            pos: Vector::new(0.0, 1.0, 0.0, 1.0),
             color: Vector::new(0.0, 1.0, 0.0, 1.0),
             normal: Vector::zero(),
             uv: Vector::zero(),
         },
-        Vertex {
-            pos: Vector::new(0.0, 3.0, -2.0, 1.0),
-            color: Vector::new(0.0, 0.0, 1.0, 1.0),
-            normal: Vector::zero(),
-            uv: Vector::zero(),
-        },
+    ];
+
+    let indices:&[usize] = &[
+        0, 1, 3,
+        1, 2, 3,
+        1, 2, 4,
+        1, 0, 4,
+        0, 3, 4,
+        3, 2, 4,
     ];
 
     let mut ren = Renderer::new(w, h);
@@ -67,6 +90,7 @@ fn main() -> Result<(), String> {
     let mut x = 0f32;
 
     ren.set_fs(fs);
+    ren.clear_color(0.5,0.8,1.0);
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -79,11 +103,19 @@ fn main() -> Result<(), String> {
             }
         }
         x += 0.1f32;
+
         let p = Matrix::perspective(f32::consts::PI * 0.5f32, w as f32 / h as f32, 0.1, 1000.0);
-        let view = Matrix::look_at(&Vector::point(3f32 * f32::sin(x), 0f32, 3f32 * f32::cos(x)), &Vector::point(0.0,0.0,0.0), &Vector::vec(0f32, 1f32, 0f32));
+        let view = Matrix::look_at(
+           &Vector::point(3f32 * f32::sin(x), 1f32, 3f32 * f32::cos(x)),
+            &Vector::point(0.0,1.0,0.0),
+            &Vector::vec(0f32, 1f32, 0f32));
         ren.set_vs(move |v: &Vertex| -> VSOutput<Vertex>{
+            //let pos = cgmath::Point3::new(v.pos.x,v.pos.y,v.pos.z)*2f32;
+            //let pos = (cp * cview).transform_point(pos);
+            //let pos = Vector::point(pos.x,pos.y,pos.z);
             VSOutput::new(
-                (&view * &p).apply(&v.pos),
+                (&p * &view).apply(&v.pos),
+                //pos,
                 Vertex {
                     pos: v.pos.clone(),
                     color: v.color.clone(),
@@ -94,7 +126,7 @@ fn main() -> Result<(), String> {
 
         let sy_time = SystemTime::now();
         ren.clear();
-        ren.render(data.as_slice());
+        ren.render_with_index(data.as_slice(),indices);
         let d = SystemTime::now().duration_since(sy_time).unwrap().as_millis();
         canvas.window_mut().set_title(format!("Soft3d With Clip {} ms", d).as_ref());
 

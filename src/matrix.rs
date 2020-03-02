@@ -1,10 +1,24 @@
 use crate::vector::Vector;
 use std::ops::{Mul, Index, IndexMut};
+use std::fmt;
+use std::fmt::{Formatter, Error};
 
-#[derive(Debug,PartialEq,Clone)]
+#[derive(PartialEq,Clone)]
 pub struct Matrix{
     m:[Vector;4],
 }
+impl fmt::Display for Matrix{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f,"[{},{},{},{}]",self.m[0],self.m[1],self.m[2],self.m[3])
+    }
+}
+
+impl fmt::Debug for Matrix{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f,"[{},{},{},{}]",self.m[0],self.m[1],self.m[2],self.m[3])
+    }
+}
+
 
 impl Index<usize> for Matrix{
     type Output = Vector;
@@ -67,18 +81,18 @@ impl Matrix{
 
     pub fn look_at(eye:&Vector,target:&Vector,up:&Vector)->Matrix{
         let zaxis = (target-eye).normalize();
-        let xaxis = up.cross(&zaxis).normalize();
-        let yaxis = zaxis.cross(&xaxis);
+        let xaxis = zaxis.cross(&up).normalize();
+        let yaxis = xaxis.cross(&zaxis).normalize();
         let px = xaxis.dot(eye);
         let py = yaxis.dot(eye);
         let pz = zaxis.dot(eye);
 
         Matrix{
             m:[
-                xaxis,
-                yaxis,
-                zaxis,
-                Vector::new(-px,-py,-pz,1.0),
+                Vector::new(xaxis.x,xaxis.y,xaxis.z,-px),
+                Vector::new(yaxis.x,yaxis.y,yaxis.z,-py),
+                Vector::new(-zaxis.x,-zaxis.y,-zaxis.z,pz),
+                Vector::new(0.0,0.0,0.0,1.0),
             ]
         }
     }
@@ -90,7 +104,7 @@ mod test{
     use crate::vector::Vector;
 
     #[test]
-    fn test_mul(){
+    fn test_apply(){
         let a = Matrix{
             m:[
                 Vector::new(1.0,2.0,3.0,4.0),
@@ -99,22 +113,37 @@ mod test{
                 Vector::new(5.0,6.0,7.0,8.0),
             ]
         };
+        let v = Vector::new(1.0,2.0,3.0,4.0);
+        let c = Vector::new(30.0,70.0,30.0,70.0);
+        assert_eq!(c,a.apply(&v));
+    }
+
+    #[test]
+    fn test_mul(){
+        let a = Matrix{
+            m:[
+                Vector::new(1.0,2.0,3.0,4.0),
+                Vector::new(5.0,6.0,7.0,8.0),
+                Vector::new(9.0,10.0,11.0,12.0),
+                Vector::new(13.0,14.0,15.0,16.0),
+            ]
+        };
 
         let b = Matrix{
             m:[
-                Vector::new(2.0,3.0,4.0,5.0),
-                Vector::new(6.0,7.0,8.0,9.0),
-                Vector::new(2.0,3.0,4.0,5.0),
-                Vector::new(6.0,7.0,8.0,9.0),
+                Vector::new(17.0,18.0,19.0,20.0),
+                Vector::new(21.0,22.0,23.0,24.0),
+                Vector::new(25.0,26.0,27.0,28.0),
+                Vector::new(29.0,30.0,31.0,32.0),
             ]
         };
 
         let c = Matrix{
             m:[
-                Vector::new(44.0,54.0,64.0,74.0),
-                Vector::new(108.0,134.0,160.0,186.0),
-                Vector::new(44.0,54.0,64.0,74.0),
-                Vector::new(108.0,134.0,160.0,186.0),
+                Vector::new(250.0,260.0,270.0,280.0),
+                Vector::new(618.0,644.0,670.0,696.0),
+                Vector::new(986.0,1028.0,1070.0,1112.0),
+                Vector::new(1354.0,1412.0,1470.0,1528.0),
             ]
         };
 
