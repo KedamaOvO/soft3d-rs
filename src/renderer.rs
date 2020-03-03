@@ -157,7 +157,7 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         }
 
         for d in self.depth_buffer.borrow_mut().iter_mut() {
-            *d = -INFINITY;
+            *d = INFINITY;
         }
     }
 
@@ -383,15 +383,10 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
 
     #[inline]
     fn set_depth(&self, x: usize, y: usize, depth: f32) -> bool {
-        let (pos,of) = (self.width * y).overflowing_add(x);
-        if of || pos > self.width * self.height{
-            println!();
-        }
-
         let pos = self.width * y + x;
         let mut db = self.depth_buffer.borrow_mut();
 
-        if depth > db[pos] {
+        if depth < db[pos] {
             db[pos] = depth;
             return true;
         }
@@ -403,9 +398,9 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         let pos = (self.width * y + x) * 3;
         let mut cb = self.color_buffer.borrow_mut();
         let (r, g, b) = ((color.x * 255f32) as u8, (color.y * 255f32) as u8, (color.z * 255f32) as u8);
-        cb[pos + 0] = b;
+        cb[pos + 0] = r;
         cb[pos + 1] = g;
-        cb[pos + 2] = r;
+        cb[pos + 2] = b;
     }
 
     //透视除法

@@ -17,13 +17,14 @@ use sdl2::keyboard::Keycode;
 use std::f32;
 
 use std::time::{Duration, SystemTime};
-use cgmath::Transform;
+use crate::texture::Texture;
 
 fn main() -> Result<(), String> {
     let (w, h) = (800, 600);
+    let tex = Texture::new("./img.png").expect("无法打开图片");
 
-    let fs = |f: &Vertex| -> Vector{
-        f.color.clone()
+    let fs = move|f: &Vertex| -> Vector{
+        tex.get_color_linear(f.uv.x, f.uv.y)
     };
 
     let data = vec![
@@ -31,31 +32,31 @@ fn main() -> Result<(), String> {
             pos: Vector::new(-1.0, 0.0, -1.0, 1.0),
             color: Vector::new(1.0, 1.0, 1.0, 1.0),
             normal: Vector::zero(),
-            uv: Vector::zero(),
+            uv: Vector::point(0.0,0.0,0.0),
         },
         Vertex {
             pos: Vector::new(-1.0, 0.0, 1.0, 1.0),
             color: Vector::new(0.0, 1.0, 1.0, 1.0),
             normal: Vector::zero(),
-            uv: Vector::zero(),
+            uv: Vector::point(0.0,0.0,0.0),
         },
         Vertex {
             pos: Vector::new(1.0, 0.0, 1.0, 1.0),
             color: Vector::new(1.0, 1.0, 0.0, 1.0),
             normal: Vector::zero(),
-            uv: Vector::zero(),
+            uv: Vector::point(1.0,0.0,0.0),
         },
         Vertex {
             pos: Vector::new(1.0, 0.0, -1.0, 1.0),
             color: Vector::new(1.0, 0.0, 1.0, 1.0),
             normal: Vector::zero(),
-            uv: Vector::zero(),
+            uv: Vector::point(1.0,0.0,0.0),
         },
         Vertex {
             pos: Vector::new(0.0, 1.0, 0.0, 1.0),
             color: Vector::new(0.0, 1.0, 0.0, 1.0),
             normal: Vector::zero(),
-            uv: Vector::zero(),
+            uv: Vector::point(0.0,1.0,0.0),
         },
     ];
 
@@ -106,7 +107,7 @@ fn main() -> Result<(), String> {
 
         let p = Matrix::perspective(f32::consts::PI * 0.5f32, w as f32 / h as f32, 0.1, 1000.0);
         let view = Matrix::look_at(
-           &Vector::point(3f32 * f32::sin(x), 1f32, 3f32 * f32::cos(x)),
+           &Vector::point(2f32 * f32::sin(x), 1f32, 2f32 * f32::cos(x)),
             &Vector::point(0.0,1.0,0.0),
             &Vector::vec(0f32, 1f32, 0f32));
         ren.set_vs(move |v: &Vertex| -> VSOutput<Vertex>{
@@ -120,7 +121,7 @@ fn main() -> Result<(), String> {
                     pos: v.pos.clone(),
                     color: v.color.clone(),
                     normal: Vector::zero(),
-                    uv: Vector::zero(),
+                    uv: v.uv.clone(),
                 })
         });
 
