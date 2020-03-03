@@ -6,7 +6,7 @@ pub struct Texture{
 }
 
 impl Texture{
-    pub fn new(path:&str)->Result<Self,ImageError>{
+    pub fn open(path:&str) ->Result<Self,ImageError>{
         image::open(path).map(|image|{
             Texture{
                 image

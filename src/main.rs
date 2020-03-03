@@ -21,7 +21,7 @@ use crate::texture::Texture;
 
 fn main() -> Result<(), String> {
     let (w, h) = (800, 600);
-    let tex = Texture::new("./img.png").expect("无法打开图片");
+    let tex = Texture::open("./img.png").expect("无法打开图片");
 
     let fs = move|f: &Vertex| -> Vector{
         tex.get_color_linear(f.uv.x, f.uv.y)
