@@ -27,7 +27,7 @@ fn main() -> Result<(), String> {
         tex.get_color_linear(f.uv.x, f.uv.y)
     };
 
-    let r = 1.0f32;
+    //Vertices
     let data = vec![
         Vertex{pos:Vector::point(-1.0,-1.0,1.0),uv: Vector::vec2(1.0,0.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
         Vertex{pos:Vector::point(1.0,-1.0,1.0),uv: Vector::vec2(0.0,0.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
@@ -50,10 +50,11 @@ fn main() -> Result<(), String> {
 
     let mut ren = Renderer::new(w, h);
 
+    //SDL2
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    let window = video_subsystem.window("Soft3d With Clip", w as u32, h as u32)
+    let window = video_subsystem.window("Soft3D", w as u32, h as u32)
         .position_centered()
         .opengl()
         .build()
@@ -86,7 +87,7 @@ fn main() -> Result<(), String> {
 
         let p = Matrix::perspective(f32::consts::PI * 0.5f32, w as f32 / h as f32, 0.1, 1000.0);
         let view = Matrix::look_at(
-           &Vector::point(2f32 * f32::sin(x), 1f32, 2f32 * f32::cos(x)),
+           &Vector::point(-1f32 * f32::sin(x), 1f32, 2f32 * f32::cos(x)),
             &Vector::point(0.0,0.0,0.0),
             &Vector::vec(0f32, 1f32, 0f32));
         ren.set_vs(move |v: &Vertex| -> VSOutput<Vertex>{
@@ -108,7 +109,7 @@ fn main() -> Result<(), String> {
         ren.clear();
         ren.render_with_index(data.as_slice(),indices);
         let d = SystemTime::now().duration_since(sy_time).unwrap().as_millis();
-        canvas.window_mut().set_title(format!("Soft3d With Clip {} ms", d).as_ref());
+        canvas.window_mut().set_title(format!("Soft3D {} ms/frame", d).as_ref());
 
         ren.get_color_buffer(|buf| {
             texture.update(None, buf, 3 * w);

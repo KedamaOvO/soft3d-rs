@@ -16,6 +16,7 @@ pub struct IVector {}
 impl<'a, 'b> Add<&'a Vector> for &'b Vector {
     type Output = Vector;
 
+    #[inline]
     fn add(self, rhs: &'a Vector) -> Self::Output {
         Vector {
             x: self.x + rhs.x,
@@ -29,6 +30,7 @@ impl<'a, 'b> Add<&'a Vector> for &'b Vector {
 impl<'a, 'b> Sub<&'a Vector> for &'a Vector {
     type Output = Vector;
 
+    #[inline]
     fn sub(self, rhs: &'a Vector) -> Self::Output {
         Vector {
             x: self.x - rhs.x,
@@ -42,6 +44,7 @@ impl<'a, 'b> Sub<&'a Vector> for &'a Vector {
 impl<'a, 'b> Mul<&'a Vector> for &'b Vector {
     type Output = Vector;
 
+    #[inline]
     fn mul(self, rhs: &'a Vector) -> Self::Output {
         Vector {
             x: self.x * rhs.x,
@@ -57,7 +60,8 @@ impl Vector {
         Self::new(0.0, 0.0, 0.0, 0.0)
     }
 
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+    #[inline]
+    pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Vector {
             x,
             y,
@@ -66,7 +70,8 @@ impl Vector {
         }
     }
 
-    pub fn point(x: f32, y: f32, z: f32) -> Self {
+    #[inline]
+    pub const fn point(x: f32, y: f32, z: f32) -> Self {
         Vector {
             x,
             y,
@@ -75,7 +80,8 @@ impl Vector {
         }
     }
 
-    pub fn vec(x: f32, y: f32, z: f32) -> Self {
+    #[inline]
+    pub const fn vec(x: f32, y: f32, z: f32) -> Self {
         Vector {
             x,
             y,
@@ -84,7 +90,8 @@ impl Vector {
         }
     }
 
-    pub fn vec2(x: f32, y: f32,) ->Self{
+    #[inline]
+    pub const fn vec2(x: f32, y: f32,) ->Self{
         Vector {
             x,
             y,
@@ -93,10 +100,12 @@ impl Vector {
         }
     }
 
+    #[inline]
     pub fn dot(&self, rhs: &Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
 
+    #[inline]
     pub fn cross(&self, rhs: &Self) -> Vector {
         Vector {
             x: self.y * rhs.z - self.z * rhs.y,
@@ -106,19 +115,23 @@ impl Vector {
         }
     }
 
+    #[inline]
     pub fn scale(&self, rhs: f32) -> Vector {
         Self::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
     }
 
+    #[inline]
     pub fn normalize(&self) -> Self {
         let len_inv = 1.0f32 / self.length();
         self.scale(len_inv)
     }
 
+    #[inline]
     pub fn length(&self) -> f32 {
         self.dot(self).sqrt()
     }
 
+    #[inline]
     pub fn lerp(a: &Vector, b: &Vector, t: f32) -> Vector {
         a + &(b - a).scale(t)
     }

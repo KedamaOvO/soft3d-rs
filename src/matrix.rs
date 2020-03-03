@@ -7,6 +7,7 @@ use std::fmt::{Formatter, Error};
 pub struct Matrix{
     m:[Vector;4],
 }
+
 impl fmt::Display for Matrix{
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f,"[{},{},{},{}]",self.m[0],self.m[1],self.m[2],self.m[3])
@@ -18,7 +19,6 @@ impl fmt::Debug for Matrix{
         write!(f,"[{},{},{},{}]",self.m[0],self.m[1],self.m[2],self.m[3])
     }
 }
-
 
 impl Index<usize> for Matrix{
     type Output = Vector;
@@ -37,6 +37,7 @@ impl IndexMut<usize> for Matrix{
 impl<'a,'b> Mul<&'a Matrix> for & 'b Matrix{
     type Output = Matrix;
 
+    #[inline]
     fn mul(self,rhs:&'a Matrix)->Matrix{
         let rx = Vector::new(rhs[0].x,rhs[1].x,rhs[2].x,rhs[3].x);
         let ry = Vector::new(rhs[0].y,rhs[1].y,rhs[2].y,rhs[3].y);
@@ -54,6 +55,7 @@ impl<'a,'b> Mul<&'a Matrix> for & 'b Matrix{
 }
 
 impl Matrix{
+    #[inline]
     pub fn apply(&self,v:&Vector)->Vector{
         Vector::new(
             self[0].dot(v),
@@ -65,6 +67,7 @@ impl Matrix{
 }
 
 impl Matrix{
+    #[inline]
     pub fn perspective(fov:f32,aspect:f32,near:f32,far:f32)->Matrix{
         let tan_inv = 1f32 / f32::tan(fov*0.5f32);
         let nsf = near - far;
@@ -79,6 +82,7 @@ impl Matrix{
         }
     }
 
+    #[inline]
     pub fn look_at(eye:&Vector,target:&Vector,up:&Vector)->Matrix{
         let zaxis = (target-eye).normalize();
         let xaxis = zaxis.cross(&up).normalize();
@@ -96,6 +100,8 @@ impl Matrix{
             ]
         }
     }
+
+
 }
 
 #[cfg(test)]

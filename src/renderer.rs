@@ -195,24 +195,8 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         }
 
         if clip {
-            let cc0 = Self::check_cvv(&p0.pos);
-            let cc1 = Self::check_cvv(&p1.pos);
-            let cc2 = Self::check_cvv(&p2.pos);
-
-            let cc_and = cc0 & cc1 & cc2;
-
-            //三个点全在某个平面之外
-            if cc_and != 0 {
-                return;
-            }
-
-            let cc_or = cc0 | cc1 | cc2;
-
-            //有顶点在裁剪空间外
-            if cc_or != 0 {
-                self.clip_triangle(p0, p1, p2,Self::find_next_clip_plane(0, cc_or));
-                return;
-            }
+            self.clip_triangle(p0, p1, p2,Some(Plane::NX));
+            return;
         }
 
         //透视除法
@@ -250,6 +234,13 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         let cc0 = Self::check_cvv(&p0.pos);
         let cc1 = Self::check_cvv(&p1.pos);
         let cc2 = Self::check_cvv(&p2.pos);
+
+        let cc_and = cc0 & cc1 & cc2;
+
+        //三个点全在某个平面之外
+        if cc_and != 0 {
+            return;
+        }
 
         let cc_or = cc0 | cc1 | cc2;
 
@@ -398,6 +389,10 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         let pos = self.width * y + x;
         let mut db = self.depth_buffer.borrow_mut();
 
+        if pos >= db.len(){
+            println!()
+        }
+
         if depth < db[pos] {
             db[pos] = depth;
             return true;
@@ -415,10 +410,12 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         cb[pos + 2] = b;
     }
 
+    #[inline]
     fn perspective_correct_to_screen(va:&V,w:f32)->V{
         va.scale(w)
     }
 
+    #[inline]
     fn perspective_correct_to_view(va:&V,w:f32)->V{
         va.scale(1f32 / w)
     }
