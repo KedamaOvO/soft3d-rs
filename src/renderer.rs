@@ -2,15 +2,15 @@ use std::cell::RefCell;
 use std::mem::swap;
 use std::f32::INFINITY;
 use crate::vector::Vector;
-use crate::vertex::Lerp;
+use crate::vertex::VertexAttribute;
 use std::marker::PhantomData;
 
-pub struct VSOutput<VA:Lerp>{
+pub struct VSOutput<VA: VertexAttribute>{
     pub pos:Vector,
     pub va:VA,
 }
 
-impl<VA:Lerp> VSOutput<VA>{
+impl<VA: VertexAttribute> VSOutput<VA>{
     pub fn new(pos:Vector,va:VA)->Self{
         VSOutput{
             pos,va,
@@ -18,12 +18,12 @@ impl<VA:Lerp> VSOutput<VA>{
     }
 }
 
-struct Segment<'a, V: Lerp> {
+struct Segment<'a, V: VertexAttribute> {
     pub s: (&'a Vector, &'a V),
     pub e: (&'a Vector, &'a V),
 }
 
-impl<'a, V: Lerp> Segment<'a, V> {
+impl<'a, V: VertexAttribute> Segment<'a, V> {
     pub fn new(a: (&'a Vector, &'a V), b: (&'a Vector, &'a V)) -> Self {
         if a.0.y < b.0.y {
             Self {
@@ -93,7 +93,7 @@ impl Plane{
 }
 
 // V is Vertex attributes
-pub struct Renderer<VS, FS, V: Lerp> where
+pub struct Renderer<VS, FS, V: VertexAttribute> where
     VS: Fn(&V) -> VSOutput<V>,
     FS: Fn(&V) -> Vector
 {
@@ -113,7 +113,7 @@ pub struct Renderer<VS, FS, V: Lerp> where
 impl<VS, FS, V> Renderer<VS, FS, V> where
     VS: Fn(&V) -> VSOutput<V>,
     FS: Fn(&V) -> Vector,
-    V: Lerp
+    V: VertexAttribute
 {
     pub fn new(w: usize, h: usize) -> Self {
         Renderer {
@@ -188,6 +188,12 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
     }
 
     fn draw_triangle(&self, p0: &VSOutput<V>, p1: &VSOutput<V>, p2: &VSOutput<V>,clip:bool) {
+        //背面剔除 https://en.wikipedia.org/wiki/Back-face_culling
+        let m = (p1.pos.x-p0.pos.x)*(p2.pos.y-p0.pos.y)-(p2.pos.x-p0.pos.x)*(p1.pos.y-p0.pos.y);
+        if m < 0f32 {
+            return;
+        }
+
         if clip {
             let cc0 = Self::check_cvv(&p0.pos);
             let cc1 = Self::check_cvv(&p1.pos);
@@ -213,15 +219,20 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         let pos0 = Self::perspective_div(&p0.pos);
         let pos1 = Self::perspective_div(&p1.pos);
         let pos2 = Self::perspective_div(&p2.pos);
-
         //到NDC
         let pos0 = self.to_ndc(&pos0);
         let pos1 = self.to_ndc(&pos1);
         let pos2 = self.to_ndc(&pos2);
 
-        let v0 = (&pos0, &p0.va);
-        let v1 = (&pos1, &p1.va);
-        let v2 = (&pos2, &p2.va);
+        //透视矫正, pos0.w = 1.0f32 / pos0.w
+        let va0= Self::perspective_correct_to_screen(&p0.va,pos0.w);
+        let va1= Self::perspective_correct_to_screen(&p1.va,pos1.w);
+        let va2= Self::perspective_correct_to_screen(&p2.va,pos2.w);
+
+
+        let v0 = (&pos0, &va0);
+        let v1 = (&pos1, &va1);
+        let v2 = (&pos2, &va2);
 
         let s1 = Segment::<V>::new(v0, v1);
         let s2 = Segment::<V>::new(v0, v2);
@@ -372,9 +383,10 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
                     V::lerp(&xp_start.1, &xp_end.1, t)
                 );
 
-                let color = (self.fragment_shader.as_ref().unwrap())(&p.1);
                 //let pos = self.to_ndc(&p.0);
                 if self.set_depth(x as usize, y as usize, p.0.z) {
+                    let va = Self::perspective_correct_to_view(&p.1,p.0.w);
+                    let color = (self.fragment_shader.as_ref().unwrap())(&va);
                     self.set_color(x as usize, y as usize, &color);
                 }
             }
@@ -403,15 +415,29 @@ impl<VS, FS, V> Renderer<VS, FS, V> where
         cb[pos + 2] = b;
     }
 
+    fn perspective_correct_to_screen(va:&V,w:f32)->V{
+        va.scale(w)
+    }
+
+    fn perspective_correct_to_view(va:&V,w:f32)->V{
+        va.scale(1f32 / w)
+    }
+
     //透视除法
     fn perspective_div(v: &Vector) -> Vector {
-        v.scale(1f32 / v.w)
+        let iw = 1f32 / v.w;
+        Vector::new(
+            v.x * iw,
+            v.y * iw,
+            v.z,
+            iw,
+        )
     }
 
     fn to_ndc(&self, v: &Vector) -> Vector {
         let nx = (v.x + 1f32) * 0.5f32 * self.width as f32;
         let ny = (-v.y + 1f32) * 0.5f32 * self.height as f32;
-        Vector::point(nx, ny, v.z)
+        Vector::new(nx, ny, v.z,v.w)
     }
 
     fn find_next_clip_plane(s: u8, code: u8) -> Option<Plane> {

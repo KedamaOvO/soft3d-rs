@@ -37,15 +37,15 @@ impl Texture{
     pub fn get_color_linear(&self, x:f32, y:f32) ->Vector {
         let fx = x * self.image.width() as f32;
         let fy = (1f32 - y) * self.image.height() as f32;
-        let ffx = fx.floor();
-        let ffy = fy.floor();
+        let ffx = if fx < 0f32 { fx.ceil()} else {fx.floor()};
+        let ffy = if fy < 0f32 { fy.ceil()} else {fy.floor()};
         let dx = fx - ffx;// dx => (0 - 1)
         let dy = fy - ffy;
 
         let ix0 = ffx as u32;
         let iy0 = ffy as u32;
-        let ix1 = ix0 + 1;
-        let iy1 = iy0+ 1;
+        let ix1 = (ix0 + 1) % self.image.width();
+        let iy1 = (iy0 + 1) % self.image.height();
 
         let c00 = self.get_color(ix0,iy0);
         let c10 = self.get_color(ix1,iy0);

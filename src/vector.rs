@@ -84,6 +84,15 @@ impl Vector {
         }
     }
 
+    pub fn vec2(x: f32, y: f32,) ->Self{
+        Vector {
+            x,
+            y,
+            z: 0.0,
+            w: 0.0,
+        }
+    }
+
     pub fn dot(&self, rhs: &Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }

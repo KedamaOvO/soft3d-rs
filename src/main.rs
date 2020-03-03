@@ -21,52 +21,31 @@ use crate::texture::Texture;
 
 fn main() -> Result<(), String> {
     let (w, h) = (800, 600);
-    let tex = Texture::open("./img.png").expect("无法打开图片");
+    let tex = Texture::open("./img.jpg").expect("无法打开图片");
 
     let fs = move|f: &Vertex| -> Vector{
         tex.get_color_linear(f.uv.x, f.uv.y)
     };
 
+    let r = 1.0f32;
     let data = vec![
-        Vertex {
-            pos: Vector::new(-1.0, 0.0, -1.0, 1.0),
-            color: Vector::new(1.0, 1.0, 1.0, 1.0),
-            normal: Vector::zero(),
-            uv: Vector::point(0.0,0.0,0.0),
-        },
-        Vertex {
-            pos: Vector::new(-1.0, 0.0, 1.0, 1.0),
-            color: Vector::new(0.0, 1.0, 1.0, 1.0),
-            normal: Vector::zero(),
-            uv: Vector::point(0.0,0.0,0.0),
-        },
-        Vertex {
-            pos: Vector::new(1.0, 0.0, 1.0, 1.0),
-            color: Vector::new(1.0, 1.0, 0.0, 1.0),
-            normal: Vector::zero(),
-            uv: Vector::point(1.0,0.0,0.0),
-        },
-        Vertex {
-            pos: Vector::new(1.0, 0.0, -1.0, 1.0),
-            color: Vector::new(1.0, 0.0, 1.0, 1.0),
-            normal: Vector::zero(),
-            uv: Vector::point(1.0,0.0,0.0),
-        },
-        Vertex {
-            pos: Vector::new(0.0, 1.0, 0.0, 1.0),
-            color: Vector::new(0.0, 1.0, 0.0, 1.0),
-            normal: Vector::zero(),
-            uv: Vector::point(0.0,1.0,0.0),
-        },
+        Vertex{pos:Vector::point(-1.0,-1.0,1.0),uv: Vector::vec2(1.0,0.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(1.0,-1.0,1.0),uv: Vector::vec2(0.0,0.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(1.0,1.0,1.0),uv: Vector::vec2(0.0,1.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(-1.0,1.0,1.0),uv: Vector::vec2(1.0,1.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(-1.0,-1.0,-1.0),uv: Vector::vec2(0.0,0.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(-1.0,1.0,-1.0),uv: Vector::vec2(0.0,1.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(1.0,1.0,-1.0),uv: Vector::vec2(1.0,1.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
+        Vertex{pos:Vector::point(1.0,-1.0,-1.0),uv: Vector::vec2(1.0,0.0),color: Vector::new(1.0,1.0,1.0,1.0),normal: Vector::zero()},
     ];
 
     let indices:&[usize] = &[
-        0, 1, 3,
-        1, 2, 3,
-        1, 2, 4,
-        1, 0, 4,
-        0, 3, 4,
-        3, 2, 4,
+        0, 1, 2, 0, 2, 3, // Quad 0
+        4, 5, 6, 4, 6, 7, // Quad 1
+        5, 3, 2, 5, 2, 6, // Quad 2
+        4, 7, 1, 4, 1, 0, // Quad 3
+        7, 6, 2, 7, 2, 1, // Quad 4
+        4, 0, 3, 4, 3, 5  // Quad 5
     ];
 
     let mut ren = Renderer::new(w, h);
@@ -108,7 +87,7 @@ fn main() -> Result<(), String> {
         let p = Matrix::perspective(f32::consts::PI * 0.5f32, w as f32 / h as f32, 0.1, 1000.0);
         let view = Matrix::look_at(
            &Vector::point(2f32 * f32::sin(x), 1f32, 2f32 * f32::cos(x)),
-            &Vector::point(0.0,1.0,0.0),
+            &Vector::point(0.0,0.0,0.0),
             &Vector::vec(0f32, 1f32, 0f32));
         ren.set_vs(move |v: &Vertex| -> VSOutput<Vertex>{
             //let pos = cgmath::Point3::new(v.pos.x,v.pos.y,v.pos.z)*2f32;
